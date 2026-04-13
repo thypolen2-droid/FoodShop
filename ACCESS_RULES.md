@@ -26,7 +26,7 @@ Cannot:
 - See hidden menu items.
 
 ### Owner
-Owners use `/owner` after entering the owner PIN.
+Owners use `/owner` after entering the owner password.
 
 Can:
 - View all menu items, including hidden items.
@@ -48,11 +48,15 @@ Cannot:
 
 ## Security Notes
 
-The current app uses a client-side owner PIN for MVP speed. This protects the owner screen from casual use, but it is not real security because browser code and `localStorage` can be inspected by a user.
+The app now uses a small Express backend for owner authentication and role enforcement:
+- Owner password is checked on the server, not in React.
+- Successful owner login creates an HTTP-only session cookie.
+- Owner-only API routes require that session.
+- Menu and order data are stored in a shared server-side JSON file for this small-shop setup.
 
-For production, enforce these rules in a backend:
-- Use Firebase Authentication or another auth provider for owner login.
-- Keep owner role claims on the server, not in browser state.
-- Move menu writes, stock updates, and order confirmation into Firebase Functions.
-- Use Firestore Security Rules so customers can only read visible menu items and create pending orders.
-- Use a transaction when confirming orders so stock updates and order status changes happen together.
+Recommended setup rules:
+- Keep a strong owner password.
+- Store only `OWNER_PASSWORD_HASH` in `.env`, not the plain password.
+- Use `npm run hash-password -- "YourStrongPassword"` to generate a bcrypt hash.
+- Keep `/menu` public and `/owner` hidden from customer navigation.
+- Use HTTPS when exposing the app outside a trusted local network.

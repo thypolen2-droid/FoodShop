@@ -2,5 +2,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 dev-server.*.log
+server.*.log
+web.*.log
 vite.config.d.ts
 vite.config.js
+.env

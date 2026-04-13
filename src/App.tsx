@@ -23,7 +23,7 @@ const copy = {
     drinks: "Drinks",
     edit: "Edit",
     emptyCart: "Add menu items to start an order.",
-    enterOwnerPin: "Enter owner PIN",
+    enterOwnerPin: "Enter owner password",
     hidden: "Hidden",
     imageUrl: "Image URL",
     invalidOwnerFallback: "Owner access failed.",
@@ -44,7 +44,7 @@ const copy = {
     openTableOrdering: "Open table ordering",
     owner: "Owner",
     ownerAccess: "Owner access",
-    ownerPin: "Owner PIN",
+    ownerPin: "Owner password",
     ownerTools: "Owner tools",
     ownerToolsCopy: "Manage food items, stock counts, and pending table orders.",
     orderSent: "Order sent",
@@ -565,33 +565,75 @@ function CartPanel({
 }
 
 function OwnerPage({ t }: { t: PageCopy }) {
-  const [pin, setPin] = useState("");
-  const [authenticatedPin, setAuthenticatedPin] = useState("");
+  const [password, setPassword] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [draft, setDraft] = useState<MenuItemDraft>(emptyDraft);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const loadOwnerData = async (ownerPin = authenticatedPin) => {
-    const [nextMenu, nextOrders] = await Promise.all([
-      foodShopApi.getAllMenuItems(ownerPin),
-      foodShopApi.listOrders(ownerPin, "pending"),
-    ]);
-    setMenu(nextMenu);
-    setOrders(nextOrders);
+  const loadOwnerData = async () => {
+    try {
+      const [nextMenu, nextOrders] = await Promise.all([
+        foodShopApi.getAllMenuItems(),
+        foodShopApi.listOrders("pending"),
+      ]);
+      setMenu(nextMenu);
+      setOrders(nextOrders);
+    } catch (apiError) {
+      setIsAuthenticated(false);
+      setMenu([]);
+      setOrders([]);
+      throw apiError;
+    }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkSession = async () => {
+      try {
+        const session = await foodShopApi.getOwnerSession();
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!session.authenticated) {
+          setIsAuthenticated(false);
+          return;
+        }
+
+        setIsAuthenticated(true);
+        await loadOwnerData();
+      } catch (apiError) {
+        if (!cancelled) {
+          setError(apiError instanceof Error ? apiError.message : t.invalidOwnerFallback);
+          setIsAuthenticated(false);
+        }
+      }
+    };
+
+    void checkSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [t.invalidOwnerFallback]);
 
   const authenticate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
 
     try {
-      await foodShopApi.getAllMenuItems(pin);
-      setAuthenticatedPin(pin);
-      await loadOwnerData(pin);
+      await foodShopApi.loginOwner(password);
+      setPassword("");
+      setIsAuthenticated(true);
+      await loadOwnerData();
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : t.invalidOwnerFallback);
+      setIsAuthenticated(false);
     }
   };
 
@@ -601,9 +643,9 @@ function OwnerPage({ t }: { t: PageCopy }) {
 
     try {
       if (editingId) {
-        await foodShopApi.updateMenuItem(authenticatedPin, editingId, draft);
+        await foodShopApi.updateMenuItem(editingId, draft);
       } else {
-        await foodShopApi.createMenuItem(authenticatedPin, draft);
+        await foodShopApi.createMenuItem(draft);
       }
 
       setDraft(emptyDraft);
@@ -628,16 +670,28 @@ function OwnerPage({ t }: { t: PageCopy }) {
   };
 
   const deleteItem = async (itemId: string) => {
-    await foodShopApi.deleteMenuItem(authenticatedPin, itemId);
+    await foodShopApi.deleteMenuItem(itemId);
     await loadOwnerData();
   };
 
   const markDone = async (orderId: string) => {
-    await foodShopApi.markOrderDone(authenticatedPin, orderId);
+    await foodShopApi.markOrderDone(orderId);
     await loadOwnerData();
   };
 
-  if (!authenticatedPin) {
+  if (isAuthenticated === null) {
+    return (
+      <main className="owner-login">
+        <div className="pin-form">
+          <p className="eyebrow">{t.ownerAccess}</p>
+          <h1>{t.enterOwnerPin}</h1>
+          <p>Checking owner session.</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (!isAuthenticated) {
     return (
       <main className="owner-login">
         <form className="pin-form" onSubmit={authenticate}>
@@ -651,7 +705,12 @@ function OwnerPage({ t }: { t: PageCopy }) {
           )}
           <label className="field-label">
             {t.ownerPin}
-            <input type="password" value={pin} onChange={(event) => setPin(event.target.value)} placeholder={t.ownerPin} />
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder={t.ownerPin}
+            />
           </label>
           <button className="submit-order" type="submit">
             {t.unlockOwnerTools}

@@ -4,11 +4,20 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node server/index.mjs",
+    "dev:web": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "node server/index.mjs",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "concurrently": "^9.2.1",
+    "cookie": "^1.1.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },
