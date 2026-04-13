@@ -98,6 +98,72 @@ Open:
 npm run build
 ```
 
+## Deploy on Render from GitHub
+
+This app needs a Node server and writable storage, so deploy it as a Render web service instead of GitHub Pages.
+
+### 1. Prepare GitHub
+
+- Keep `.env` out of GitHub
+- Review `server/data/store.json` and keep only safe starter/demo data
+- Push the repo to GitHub and keep `main` as the deployment branch
+
+### 2. Create the owner password hash
+
+Generate a bcrypt hash locally:
+
+```bash
+npm run hash-password -- "YourStrongPassword"
+```
+
+Copy the result and keep it ready for Render as `OWNER_PASSWORD_HASH`.
+
+### 3. Create the Render service
+
+This repo includes `render.yaml`, so Render can create the service from the repository settings:
+
+- Service type: Web Service
+- Runtime: Node
+- Build command: `npm ci && npm run build`
+- Start command: `npm start`
+- Auto-deploy: enabled for `main`
+
+Set these environment variables in Render:
+
+- `NODE_ENV=production`
+- `OWNER_PASSWORD_HASH=<your bcrypt hash>`
+- `STORE_FILE=/var/data/store.json`
+
+Let Render provide `PORT`.
+
+### 4. Attach persistent storage
+
+Add a persistent disk and mount it at:
+
+```text
+/var/data
+```
+
+The app will then store menu/order data at:
+
+```text
+/var/data/store.json
+```
+
+If the store file does not exist yet, the server creates it automatically with an empty menu and order list.
+
+### 5. Launch checks
+
+After the first deploy:
+
+- Open `/menu`
+- Open `/owner`
+- Log in with the owner password
+- Create a menu item
+- Submit a test order
+- Confirm the order as owner
+- Redeploy once and verify the data is still present
+
 ## Security Model
 
 This project does **not** keep the owner password in React or in `VITE_*` variables.
@@ -114,10 +180,16 @@ For a small local-network shop, this is much safer than a frontend-only PIN.
 
 ## Data Storage
 
-Data is stored in:
+By default, local data is stored in:
 
 ```text
 server/data/store.json
+```
+
+You can override the location with `STORE_FILE`. This is useful for public hosting with a persistent disk, such as:
+
+```text
+/var/data/store.json
 ```
 
 That file contains:

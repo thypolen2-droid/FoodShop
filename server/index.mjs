@@ -273,7 +273,7 @@ app.use((error, _req, res, _next) => {
 
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(distDir));
-  app.get("*", async (_req, res) => {
+  app.get("/{*splat}", async (_req, res) => {
     res.type("html").send(await readFile(path.join(distDir, "index.html"), "utf8"));
   });
 }

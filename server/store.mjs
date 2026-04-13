@@ -3,7 +3,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STORE_FILE = path.join(__dirname, "data", "store.json");
+const DEFAULT_STORE = {
+  menuItems: [],
+  orders: [],
+};
+const STORE_FILE = process.env.STORE_FILE?.trim() || path.join(__dirname, "data", "store.json");
 
 let writeQueue = Promise.resolve();
 
@@ -43,6 +47,17 @@ function normalizeStore(store) {
 
 async function ensureStoreFile() {
   await mkdir(path.dirname(STORE_FILE), { recursive: true });
+
+  try {
+    await readFile(STORE_FILE, "utf8");
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+      await writeStore(DEFAULT_STORE);
+      return;
+    }
+
+    throw error;
+  }
 }
 
 async function readStore() {
